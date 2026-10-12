@@ -61,6 +61,8 @@
 ```
 README.md                          本文件
 docs/strata-benchmarks-2026-10.md  合并后的 Strata 基准报告（引擎/调参/并发/上下文/视觉）
+docs/strata-ab-2026-10-11.md       参数 A/B 实测（short-read / spec-min-p / mtp-hnorm / prefill）
+docs/strata-upgrade-2026-10-11.md  v0.1.41 → v0.1.43 升级记录与验证
 docs/ai3080-*.md                   分阶段原始记录（拓扑、VBIOS、BAR1、P2P、调优、部署、回滚）
 docs/p2p-*.md                      P2P / NCCL / 张量并行实验记录
 docs/quant-*.md  docs/spec-decode-*.md   量化与投机解码调研
@@ -69,6 +71,21 @@ scripts/                           实际跑过的基准/切换/调参脚本
 ```
 
 > `docs/ai3080-inference-engine-verification-2026-10.md` 是 **Strata 部署之前**的引擎调研（当时结论"strata 不适用"已被后续部署取代），保留作历史记录。
+
+## 参数调优结论（2026-10-11 A/B 实测）
+
+一组网传参数（V100 短视频，长文档场景）：`--short-read 32`、`--layer-split 24`、`--mtp-hnorm stream`、`--spec-min-p 0.8`。
+
+| 参数 | 本机实测 |
+|---|---|
+| `--short-read 32` | 短提示与默认 64 无差；**长文档上输出与草稿接受率逐位相同** → 无收益 |
+| `--prefill auto:32768` | **无影响**（prefill 稳定在 2,170-2,183 tok/s） |
+| `--spec-min-p 0.8` | 接受率变高但**更慢**（接受率不是速度指标） |
+| `--mtp-hnorm stream` | 1024-token 生成下**慢 9-12%** |
+| `--layer-split 24` | **不适用**：2 卡均分点；本机 3 卡 `auto` = `K=15,32` |
+| 四项组合 | 1024-token 生成下**慢 13-15%** |
+
+**结论：本机 `--calibrate` 测出的默认值更好**（`--pcie-frac 0.00`、`--spec-min-p 0.5`、`--pool-workers 23`），网传参数来自别的硬件与口径，不能照抄。完整数据见 [docs/strata-ab-2026-10-11.md](docs/strata-ab-2026-10-11.md)。
 
 ## 三条硬红线（血泪）
 
